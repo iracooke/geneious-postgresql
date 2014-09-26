@@ -21,6 +21,7 @@ It seems that if one user has several permissions on a group (several lines in t
 
 
 import psycopg2
+import argparse
 
 def createuser(conn,name,createprivategroup=True,password='ChangeMe'):
     """ Create a new user, give him appropriate rights on the database, and modify g_* table to allow him to perform operations from geneious
@@ -106,7 +107,13 @@ def createuser(conn,name,createprivategroup=True,password='ChangeMe'):
     validateandwrite(conn)
     cur.close()
 
-def createcollaboration(conn,collaborationname,private=False):
+#def createcollaboration(conn,collaborationname,private=False):
+
+def createcollaboration(conn,args):
+    collaborationname=args.collaborationname
+    private=args.private
+    print collaborationname
+    print private
     cur = conn.cursor()
 
     # Find a free group id for this collaboration
@@ -338,4 +345,35 @@ def listall(conn,prefix='Current '):
     cur.execute("SELECT * FROM g_user_group_role")
     print prefix + 'state of g_user_group_role: '
     print cur.fetchall()
+
+def listall_command(conn,args):
+    listall(conn,args.prefix)
+
+
+parser = argparse.ArgumentParser(description='Administer a Geneious PostgreSQL database.')
+parser.add_argument('-d','--database', default='geneious')
+parser.add_argument('-u','--user', default='geneiousadmin')
+parser.add_argument('-p','--password',required=True)
+
+subparsers = parser.add_subparsers(help='sub-command help')
+parser_createcollab = subparsers.add_parser('create_collaboration', help='create_collaboration help')
+parser_createcollab.add_argument('collaborationname')
+parser_createcollab.add_argument('--private',action='store_true',default=False)
+parser_createcollab.set_defaults(func=createcollaboration)
+
+parser_listall = subparsers.add_parser('listall')
+parser_listall.add_argument('--prefix',default='Current ')
+parser_listall.set_defaults(func=listall_command)
+
+args  = parser.parse_args()
+
+conn=None
+try:
+    conn = psycopg2.connect("dbname='%s' user='%s' host='localhost' password='%s'" % (args.database,args.user,args.password))
+except:
+    print "I am unable to connect to the database"
+
+if conn:
+    args.func(conn,args)
+
     
