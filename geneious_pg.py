@@ -23,7 +23,11 @@ It seems that if one user has several permissions on a group (several lines in t
 import psycopg2
 import argparse
 
-def createuser(conn,name,createprivategroup=True,password='ChangeMe'):
+def createuser(conn,args):
+    name=args.name
+    createprivategroup=args.withprivategroup
+    password=args.userpassword
+
     """ Create a new user, give him appropriate rights on the database, and modify g_* table to allow him to perform operations from geneious
     1) The user is created in the SQL system with appropriate permissions on tables
     2) A primary group is created (in table g_group) for the user, named $username_public, with odd id.
@@ -37,9 +41,9 @@ def createuser(conn,name,createprivategroup=True,password='ChangeMe'):
     cur = conn.cursor()
     # Enter the user in postgresql
     # It seems that the password are hashed (by md5) in the form $password + $username
-    if not 'md5' in password:
-        print 'It seems that you just gave me a non encrypted password. Bad admin ! Bad user ! You bunch of morons ! Be more cautious next time !'
-    SQL=("CREATE ROLE " + name + " LOGIN PASSWORD %s")
+    # if not 'md5' in password:
+    #     print 'It seems that you just gave me a non encrypted password. Bad admin ! Bad user ! You bunch of morons ! Be more cautious next time !'
+    SQL=("CREATE ROLE " + name + " LOGIN ENCRYPTED PASSWORD %s")
     data=(password, )
     cur.execute(SQL,data)
 
@@ -146,7 +150,10 @@ def createcollaboration(conn,args):
     validateandwrite(conn)
     cur.close()
 
-def addusertocollaboration(conn,collaborationname,username,role):
+def addusertocollaboration(conn,args):
+    collaborationname=args.collaborationname
+    username=args.username
+    role=args.role
     cur = conn.cursor()
 
     # Find the collaboration in table g_group
@@ -180,7 +187,9 @@ def addusertocollaboration(conn,collaborationname,username,role):
     validateandwrite(conn)
     cur.close()
 
-def removeuserfromcollaboration(conn,collaborationname,username):
+def removeuserfromcollaboration(conn,args):
+    collaborationname=args.collaborationname
+    username=args.username
     cur = conn.cursor()
 
     # Find the collaboration in table g_group
@@ -356,10 +365,32 @@ parser.add_argument('-u','--user', default='geneiousadmin')
 parser.add_argument('-p','--password',required=True)
 
 subparsers = parser.add_subparsers(help='sub-command help')
+
 parser_createcollab = subparsers.add_parser('create_collaboration', help='create_collaboration help')
 parser_createcollab.add_argument('collaborationname')
 parser_createcollab.add_argument('--private',action='store_true',default=False)
 parser_createcollab.set_defaults(func=createcollaboration)
+
+
+#    ,name,createprivategroup=True,password='ChangeMe'
+parser_adduser = subparsers.add_parser('adduser', help='adduser help')
+parser_adduser.add_argument('name')
+parser_adduser.add_argument('--withprivategroup',action='store_true',default=False)
+parser_adduser.add_argument('--userpassword',required=True)
+parser_adduser.set_defaults(func=createuser)
+
+
+parser_addusercollab = subparsers.add_parser('adduser_to_collaboration', help='adduser_to_collaboration help')
+parser_addusercollab.add_argument('collaborationname')
+parser_addusercollab.add_argument('username')
+parser_addusercollab.add_argument('role')
+parser_addusercollab.set_defaults(func=addusertocollaboration)
+
+parser_removeusercollab = subparsers.add_parser('removeuser_from_collaboration', help='removeuser_from_collaboration help')
+parser_removeusercollab.add_argument('collaborationname')
+parser_removeusercollab.add_argument('username')
+parser_removeusercollab.set_defaults(func=removeuserfromcollaboration)
+
 
 parser_listall = subparsers.add_parser('listall')
 parser_listall.add_argument('--prefix',default='Current ')
